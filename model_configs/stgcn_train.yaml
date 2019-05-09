@@ -13,13 +13,14 @@ model: network.dgl_stgcn.STGCN
 train_feeder_args:
   x_mode: 'xsub'
   t_mode: 'train'
-  # valid_length: None
+  # valid_length: 100
 
 test_feeder_args:
   x_mode: 'xsub'
   t_mode: 'test'
-  # valid_length: None
+  # valid_length: 100
 
+phase: 'train'
 num_workers: 5
 print_log: True
 device: 0
@@ -31,4 +32,5 @@ optimizer: 'SGD'
 nesterov: True
 
 log_interval: 100
+save_interval: 2
 eval_interval: 2

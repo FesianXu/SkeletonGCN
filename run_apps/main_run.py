@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import numpy as np 
 import time
 import os
+from collections import OrderedDict
 
 import yaml 
 
@@ -47,10 +48,13 @@ class Processor(object):
     Include the training and evaluation model, dynamic loading the model
     '''
     def __init__(self, arg):
+        assert arg.phase in ('train', 'test')
+
         self.arg = arg
         self._load_data()
         self._load_model()
         self._load_optimizer()
+        
     
     @funcTitle('Data Module', isTimeit=True)
     def _load_data(self):
@@ -170,7 +174,20 @@ class Processor(object):
                 self._eval(epoch=0, save_score=self.arg.save_score, loader_name=['test'])
             self._print_log('Done.\n')
 
- 
+    @funcTitle('Save Model Module', isTimeit=True)
+    def _save_model(self, model, model_path, **kwargs):
+        state_dict = model.state_dict()
+        weights = OrderedDict([
+            (k.split('module.')[-1], v.cpu()) for k,v in state_dict.items()
+        ])
+        save_dict = {
+            'weights': weights,
+            'train_acc': kwargs['train_acc'],
+            'train_loss': kwargs['train_loss']
+        }
+        torch.save(save_dict, model_path)
+        
+    
     def _train(self, epoch, save_model=False):
         self.model.train()
         self._print_log('Training epoch: {}'.format(epoch + 1))
@@ -178,6 +195,7 @@ class Processor(object):
         lr = self._adjust_learning_rate(epoch)
         loss_value = []
         acc_value = []
+        acc_list = []
 
         tmp_loss_value = []
         tmp_acc_value = []
@@ -216,8 +234,9 @@ class Processor(object):
                         sum(tmp_acc_value)/self.arg.log_interval/self.arg.batch_size))
                 tmp_acc_value = []
                 tmp_loss_value = []
+                acc_list.append(sum(tmp_acc_value)/self.arg.log_interval/self.arg.batch_size )
             timer['statistics'] += self._split_time()
-
+            
         # statistics of time consumption and loss
         proportion = {
             k: '{:02d}%'.format(int(round(v * 100 / sum(timer.values()))))
@@ -229,6 +248,13 @@ class Processor(object):
             '\tTime consumption: [Data]{dataloader}, [Network]{model}'.format(
                 **proportion))
 
+        # save the model weights
+        if save_model:
+            model_save_path = '{}/epoch{}_model.pt'.format(self.arg.work_dir, epoch+1)
+            self._save_model(model=self.model,
+                             model_path=model_save_path,
+                             train_loss=np.mean(loss_value),
+                             train_acc=None if len(acc_list) is 0 else sum(acc_list)/len(acc_list))
 
 
     def _eval(self, epoch, loader_name=['test']):
