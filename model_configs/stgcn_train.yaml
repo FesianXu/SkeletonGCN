@@ -7,7 +7,7 @@ model_args:
   num_channel: 3
   dropout: 0.5
 
-feeder: feeder.ntu_feeder_fast.NTU_Feeder
+feeder: feeder.ntu_feeder.NTU_Feeder
 model: network.dgl_stgcn.STGCN
 
 train_feeder_args:
@@ -22,7 +22,7 @@ test_feeder_args:
 
 num_workers: 5
 print_log: True
-device: 1
+device: 0
 batch_size: 8
 weight_decay: 0.001
 base_lr: 0.01

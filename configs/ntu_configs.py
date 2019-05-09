@@ -6,7 +6,7 @@ __date__ = '2018/10/17'
 __version__ = ''
 
 '''
-Here is the local config for the relative euclidian distance in Two Tail Network
+Some static configs
 '''
 
 import numpy as np
@@ -28,16 +28,9 @@ class GlobalConfig(object):
     self.base_num_channel = 3
     self.num_channel = self.base_num_channel*self.max_person # here only the distance work
     self.max_nframe = 300
-    self.num_clips = self.max_nframe
-    self.is_single = False # the formation of the datapool
-    self.is_cuda = True # whether use gpu or not
-    self.cuda_id = 1
-    self.batch_size = 8
-    
     self.num_joints = 25
-    self.resize_width = self.num_clips * 1
-    self.resize_height = self.num_joints * 2
-
+    self.readFromMemory = False
+  
     self.connect_bone = [
         (3, 2), (2, 20), # head
         (20,4), (4,5), (5,6), (6,7), (7,21), (6,22), # left arm
@@ -57,12 +50,13 @@ class GlobalConfig(object):
     self.test_view_config = [i for i in self.total_view if i not in self.train_view_config]
     
     self.ntu_root_path = '/home/fesian/AI_workspace/datasets/NTU/'
-    if self.is_single:
+    if self.readFromMemory:
       self.ntu_xsub_loading_list = '{}loading_list/x_sub_single.npy'.format(self.ntu_root_path)
       self.ntu_xview_loading_list = '{}loading_list/x_view_single.npy'.format(self.ntu_root_path)
     else:
       self.ntu_xsub_loading_list = '{}loading_list/x_sub.npy'.format(self.ntu_root_path)
       self.ntu_xview_loading_list = '{}loading_list/x_view.npy'.format(self.ntu_root_path)
+    
     self.ntu_missing_list = '{}loading_list/missing_list.npy'.format(self.ntu_root_path)
     self.ntu_whole_raw_path = '{}whole_raw.npy'.format(self.ntu_root_path)
     self.ntu_data_path = '{}raw_npy/'.format(self.ntu_root_path)

@@ -1,1 +1,1 @@
-from feeder.ntu_feeder_fast import NTU_Feeder as Feeder
+from feeder.ntu_feeder import NTU_Feeder as Feeder

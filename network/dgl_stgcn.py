@@ -7,8 +7,8 @@ import configs.ntu_configs as config
 import math
 import numpy as np
 import copy
-from feeder.ntu_feeder_fast import build_graph
-import feeder.ntu_feeder_fast as ntu_feeder
+from feeder.ntu_feeder import build_graph
+import feeder.ntu_feeder as ntu_feeder
 
 gc = config.GlobalConfig()
 
@@ -211,7 +211,8 @@ class STGCN(nn.Module):
                  num_person=2,
                  num_frame=300,
                  num_joint=25,
-                 num_channel=3):
+                 num_channel=3,
+                 device=None):
         super(STGCN, self).__init__()
         self.batch_size = batch_size
         self.num_person = num_person
@@ -219,9 +220,12 @@ class STGCN(nn.Module):
         self.num_joint = num_joint
         self.num_channel = num_channel
 
-        graph_all = build_graph(temp_mode=temp_mode, self_connect=True, max_nframe=num_frame)
-        graph_half = build_graph(temp_mode=temp_mode, self_connect=True, max_nframe=int(num_frame/2))
-        graph_quarter = build_graph(temp_mode=temp_mode, self_connect=True, max_nframe=int(num_frame/4))
+        graph_all = build_graph(temp_mode=temp_mode, self_connect=True, 
+                                max_nframe=num_frame,device=device,num_joint=num_joint)
+        graph_half = build_graph(temp_mode=temp_mode, self_connect=True, 
+                                 max_nframe=int(num_frame/2), device=device,num_joint=num_joint)
+        graph_quarter = build_graph(temp_mode=temp_mode, self_connect=True, 
+                                    max_nframe=int(num_frame/4), device=device,num_joint=num_joint)
 
         graph_all = [copy.deepcopy(graph_all) for i in range(num_person * batch_size)]
         graph_half = [copy.deepcopy(graph_half) for i in range(num_person * batch_size)]

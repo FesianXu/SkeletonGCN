@@ -79,7 +79,9 @@ class Processor(object):
         output_device = self.arg.device
         self.output_device = output_device
         Model = import_class(self.arg.model)
-        self.model = Model(**self.arg.model_args, batch_size=self.arg.batch_size).cuda(output_device)
+        self.model = Model(**self.arg.model_args, 
+                           batch_size=self.arg.batch_size,
+                           device=self.arg.device).cuda(output_device)
         self.loss_fn = nn.CrossEntropyLoss().cuda(output_device)
         
 
