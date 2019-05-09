@@ -1,4 +1,4 @@
-work_dir: '/home/fesian/AI_workspace/research/skel_gcn/run_app/dgl_1'
+work_dir: '/home/fesian/AI_workspace/research/public_skelgcn/work_dirs/dgl_ntu_1/'
 
 model_args:
   num_person: 2
