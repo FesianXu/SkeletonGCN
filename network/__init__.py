@@ -1,0 +1,1 @@
+from network.dgl_stgcn import STGCN as Model
