@@ -108,7 +108,7 @@ class TemporalConvNetwork(nn.Module):
                                 kernel_size=(kernel, 1),
                                 stride=(stride, 1),
                                 padding=(padding, 0))
-        self.bn = nn.BatchNorm2d(out_feats)
+        self.bn = nn.BatchNorm2d(out_feats, track_running_stats=True)
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
 
@@ -272,7 +272,7 @@ class STGCN(nn.Module):
         
         
         conv_init(self.fcn)
-        
+
     def forward(self, h):
         '''
         args:

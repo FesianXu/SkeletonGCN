@@ -95,7 +95,7 @@ class Processor(object):
 
     @funcTitle('Weights Module', isTimeit=True)
     def _load_weight(self):
-        self._print_log('Loading weights from: {}'.format(self.arg.weights))
+        print('Loading weights from: {}'.format(self.arg.weights))
         checkpoint = torch.load(self.arg.weights)
         weights = checkpoint['weights']
         train_acc = checkpoint['train_acc']
@@ -162,7 +162,7 @@ class Processor(object):
 
     def _print_time(self):
         localtime = time.asctime(time.localtime(time.time()))
-        self.print_log("Local current time :  " + localtime)
+        self._print_log("Local current time :  " + localtime)
 
     def _print_log(self, str, print_time=True):
         if print_time:
@@ -242,8 +242,6 @@ class Processor(object):
         self._record_time()
         timer = dict(dataloader=0.001, model=0.001, statistics=0.001)
         for batch_idx, (features, labels) in enumerate(loader):
-            # features = features.view(self.arg.batch_size * self.arg.model_args['num_person'] * \
-            #                          self.arg.model_args['num_frame'] * self.arg.model_args['num_joint'], -1).float().cuda(self.arg.device)
             features = features.float().cuda(self.arg.device)
             labels = labels.cuda(self.arg.device)
             timer['dataloader'] += self._split_time()
@@ -297,7 +295,7 @@ class Processor(object):
 
 
     def _eval(self, epoch, loader_name=['test'], islog=True):
-        self.model.eval()
+        self.model.train()
         if islog:
             self._print_log('Eval epoch: {}'.format(epoch + 1))
 
@@ -307,13 +305,11 @@ class Processor(object):
             labels_list = []
             for batch_idx, (features, labels) in enumerate(self.data_loader[ln]):
                 bars.print_toolbar(batch_idx * 1.0 / len(self.data_loader[ln]),
-                '({:>5}/{:<5})'.format(
-                    batch_idx + 1, len(self.data_loader[ln])))
-                # features = features.view(self.arg.batch_size * self.arg.model_args['num_person'] * \
-                #                          self.arg.model_args['num_frame'] * self.arg.model_args['num_joint'], -1).float().cuda(self.arg.device)
+                '({:>5}/{:<5})'.format(batch_idx + 1, len(self.data_loader[ln])))
+                
                 features = features.float().cuda(self.arg.device)
                 labels = labels.cuda(self.arg.device)
-
+                
                 logits = self.model(features)
                 lossv = self.loss_fn(logits, labels)
 

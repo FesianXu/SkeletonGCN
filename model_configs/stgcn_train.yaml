@@ -17,8 +17,8 @@ train_feeder_args:
 
 test_feeder_args:
   x_mode: 'xsub'
-  t_mode: 'test'
-  valid_length: 300
+  t_mode: 'train'
+  valid_length: 800
 
 phase: 'test'
 num_workers: 5
@@ -36,5 +36,5 @@ save_interval: 2
 eval_interval: 2
 
 
-force_run: True
-# weights: '/home/fesian/AI_workspace/research/public_skelgcn/work_dirs/dgl_ntu_1/epoch46_model.pt'
+force_run: True # run the inference no matter the weights loaded or not
+weights: '/home/fesian/AI_workspace/research/public_skelgcn/work_dirs/dgl_ntu_1/epoch46_model.pt'
