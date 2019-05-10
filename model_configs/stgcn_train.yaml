@@ -18,9 +18,9 @@ train_feeder_args:
 test_feeder_args:
   x_mode: 'xsub'
   t_mode: 'test'
-  # valid_length: 100
+  valid_length: 300
 
-phase: 'train'
+phase: 'test'
 num_workers: 5
 print_log: True
 device: 0
@@ -28,9 +28,13 @@ batch_size: 8
 weight_decay: 0.001
 base_lr: 0.01
 step: [10, 50]
-optimizer: 'SGD'
+optimizer: 'Adam'
 nesterov: True
 
 log_interval: 100
 save_interval: 2
 eval_interval: 2
+
+
+force_run: True
+# weights: '/home/fesian/AI_workspace/research/public_skelgcn/work_dirs/dgl_ntu_1/epoch46_model.pt'

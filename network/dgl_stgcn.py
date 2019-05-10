@@ -272,7 +272,7 @@ class STGCN(nn.Module):
         
         
         conv_init(self.fcn)
-    
+        
     def forward(self, h):
         '''
         args:
@@ -319,7 +319,7 @@ class STGCN(nn.Module):
 
 
 if __name__ == '__main__':
-    from feeder.ntu_feeder_fast import build_graph
+    from feeder.ntu_feeder import build_graph
     from torch.utils.data import DataLoader
 
 

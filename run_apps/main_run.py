@@ -51,6 +51,7 @@ class Processor(object):
         assert arg.phase in ('train', 'test')
 
         self.arg = arg
+        self._save_arg()
         self._load_data()
         self._load_model()
         self._load_optimizer()
@@ -87,11 +88,39 @@ class Processor(object):
                            batch_size=self.arg.batch_size,
                            device=self.arg.device).cuda(output_device)
         self.loss_fn = nn.CrossEntropyLoss().cuda(output_device)
+
+        if self.arg.weights:
+            self._load_weight()
         
 
     @funcTitle('Weights Module', isTimeit=True)
     def _load_weight(self):
-        pass
+        self._print_log('Loading weights from: {}'.format(self.arg.weights))
+        checkpoint = torch.load(self.arg.weights)
+        weights = checkpoint['weights']
+        train_acc = checkpoint['train_acc']
+        train_loss = checkpoint['train_loss']
+
+        print(' => the train acc of the loaded weights : {}'.format(train_acc))
+        print(' => the train loss of the loaded weights : {}'.format(train_loss))
+
+        weights = OrderedDict([
+            (u.split('module.')[-1], v.cuda(self.output_device)) for u, v in weights.items()
+        ])
+
+        try:
+            self.model.load_state_dict(weights)
+        except:
+            state = self.model.state_dict()
+            diff = list(
+                set(state.keys()).difference(set(weights.keys()))
+                )
+            print('Cannot find these weights:')
+            for d in diff:
+                print('  ==> '+d)
+            state.update(weights) # clean the unnecesary weights' keys
+            self.model.load_state_dict(state)
+
     
     @funcTitle('Optimizer Module', isTimeit=True)
     def _load_optimizer(self):
@@ -109,6 +138,17 @@ class Processor(object):
                 weight_decay=self.arg.weight_decay)
         else:
             raise ValueError()
+
+    @funcTitle('Arg Saving Module', isTimeit=True)
+    def _save_arg(self):
+        '''
+        save the arg in the work dir
+        '''
+        arg_dict = vars(self.arg)
+        if not os.path.exists(self.arg.work_dir):
+            os.makedirs(self.arg.work_dir)
+        with open('{}/config.yaml'.format(self.arg.work_dir), 'w') as f:
+            yaml.dump(arg_dict, f)
 
     def _adjust_learning_rate(self, epoch):
         if self.arg.optimizer == 'SGD' or self.arg.optimizer == 'Adam':
@@ -165,14 +205,13 @@ class Processor(object):
                     pass
 
         elif self.arg.phase == 'test':
-            if self.arg.weights is None:
+            if self.arg.weights is None and not self.arg.force_run:
                 raise ValueError('Please appoint --weights.')
-            self.arg.print_log = False
-            self.print_log('Model:   {}.'.format(self.arg.model))
-            self.print_log('Weights: {}.'.format(self.arg.weights))
+            print('Model:   {}.'.format(self.arg.model))
+            print('Weights: {}.'.format(self.arg.weights))
             with torch.no_grad():
-                self._eval(epoch=0, save_score=self.arg.save_score, loader_name=['test'])
-            self._print_log('Done.\n')
+                self._eval(epoch=0, loader_name=['test'], islog=False)
+            print('Done.\n')
 
     @funcTitle('Save Model Module', isTimeit=True)
     def _save_model(self, model, model_path, **kwargs):
@@ -232,9 +271,9 @@ class Processor(object):
                     '\tBatch({}/{}) done. Loss: {:.4f}  lr:{:.6f}, acc:{:.3f}'.format(
                         batch_idx, len(loader), sum(tmp_loss_value)/self.arg.log_interval, lr, \
                         sum(tmp_acc_value)/self.arg.log_interval/self.arg.batch_size))
+                acc_list.append(sum(tmp_acc_value)/self.arg.log_interval/self.arg.batch_size )
                 tmp_acc_value = []
                 tmp_loss_value = []
-                acc_list.append(sum(tmp_acc_value)/self.arg.log_interval/self.arg.batch_size )
             timer['statistics'] += self._split_time()
             
         # statistics of time consumption and loss
@@ -257,9 +296,10 @@ class Processor(object):
                              train_acc=None if len(acc_list) is 0 else sum(acc_list)/len(acc_list))
 
 
-    def _eval(self, epoch, loader_name=['test']):
+    def _eval(self, epoch, loader_name=['test'], islog=True):
         self.model.eval()
-        self._print_log('Eval epoch: {}'.format(epoch + 1))
+        if islog:
+            self._print_log('Eval epoch: {}'.format(epoch + 1))
 
         for ln in loader_name:
             loss_value = []
@@ -287,12 +327,16 @@ class Processor(object):
 
             score = np.concatenate(score_frag)
             labels_np = np.concatenate(labels_list)
-            self._print_log('\tMean {} loss of {} batches: {}.'.format(
-                ln, len(self.data_loader[ln]), np.mean(loss_value)))
-            
             predict = np.argmax(score, axis=-1)
             acc = np.sum(np.equal(labels_np, predict).astype(np.int32))/predict.shape[0]
-            self._print_log('The accuracy over {} samples is {}'.format(predict.shape[0], acc))
+            if islog:
+                self._print_log('\tMean {} loss of {} batches: {}.'.format(
+                    ln, len(self.data_loader[ln]), np.mean(loss_value)))
+                self._print_log('The accuracy over {} samples is {}'.format(predict.shape[0], acc))
+            else:
+                print('\tMean {} loss of {} batches: {}.'.format(
+                    ln, len(self.data_loader[ln]), np.mean(loss_value)))
+                print('The accuracy over {} samples is {}'.format(predict.shape[0], acc))
                 
 
 

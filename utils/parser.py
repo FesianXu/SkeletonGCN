@@ -15,6 +15,9 @@ def str2bool(v):
 def get_parser():
     parser = argparse.ArgumentParser(description='Spatial Temporal Graph Convolution Network implemented based on DGL')
 
+    parser.add_argument('--weights',
+                        default=None,
+                        help='''pretrained model's weights''')
     parser.add_argument('--work-dir',
                         default=None,
                         help='The folder for saving the models and configs')
@@ -109,6 +112,9 @@ def get_parser():
                         type=str2bool,
                         default=True,
                         help='print logging or not')
+    parser.add_argument('--force_run',
+                        default=False,
+                        help='run the inference anyway')
 
     return parser
 
