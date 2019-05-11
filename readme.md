@@ -48,7 +48,7 @@ There are two sample instances in the folder `data_samples/` for a better unders
 - 4/24, 2019: The network cannot converge. The gradient of the GCN seems not change.
 - 4/24, 2019: The network can converge now but still doesn't converge well. The GPU usage is low, maybe the problem of `DataLoader` design.
 - 5/9, 2019: referring the design in STGCN[4] and have a better network and software framework designing now!
-- 5/10, 2019: the evaluation phase, `self.model.eval()` will cause bad performance.
+
 
 
 -----

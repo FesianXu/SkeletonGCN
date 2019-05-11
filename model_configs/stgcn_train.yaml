@@ -1,11 +1,13 @@
-work_dir: '/home/fesian/AI_workspace/research/public_skelgcn/work_dirs/dgl_ntu_1/'
+work_dir: '/home/fesian/AI_workspace/research/public_skelgcn/work_dirs/eval_1/'
 
 model_args:
+  num_action: 60
   num_person: 2
   num_joint: 25
   num_frame: 300
   num_channel: 3
   dropout: 0.5
+  temp_mode: 'None'
 
 feeder: feeder.ntu_feeder.NTU_Feeder
 model: network.dgl_stgcn.STGCN
@@ -18,7 +20,7 @@ train_feeder_args:
 test_feeder_args:
   x_mode: 'xsub'
   t_mode: 'train'
-  valid_length: 800
+  valid_length: 240
 
 phase: 'test'
 num_workers: 5
@@ -28,10 +30,10 @@ batch_size: 8
 weight_decay: 0.001
 base_lr: 0.01
 step: [10, 50]
-optimizer: 'Adam'
+optimizer: 'SGD'
 nesterov: True
 
-log_interval: 100
+log_interval: 200
 save_interval: 2
 eval_interval: 2
 

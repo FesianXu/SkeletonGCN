@@ -9,9 +9,7 @@ import numpy as np
 import time
 import os
 from collections import OrderedDict
-
-import yaml 
-
+import yaml
 from utils import parser
 from functools import wraps
 from utils import bars
@@ -54,9 +52,10 @@ class Processor(object):
         self._save_arg()
         self._load_data()
         self._load_model()
+        if self.arg.weights:
+            self._load_weight()
         self._load_optimizer()
         
-    
     @funcTitle('Data Module', isTimeit=True)
     def _load_data(self):
         Feeder = import_class(self.arg.feeder)
@@ -89,10 +88,6 @@ class Processor(object):
                            device=self.arg.device).cuda(output_device)
         self.loss_fn = nn.CrossEntropyLoss().cuda(output_device)
 
-        if self.arg.weights:
-            self._load_weight()
-        
-
     @funcTitle('Weights Module', isTimeit=True)
     def _load_weight(self):
         print('Loading weights from: {}'.format(self.arg.weights))
@@ -115,9 +110,17 @@ class Processor(object):
             diff = list(
                 set(state.keys()).difference(set(weights.keys()))
                 )
+            diff_ = list(
+                set(weights.keys()).difference(set(state.keys()))
+                )
             print('Cannot find these weights:')
             for d in diff:
-                print('  ==> '+d)
+                print('  +=> '+d)
+
+            if len(diff_) != 0:
+                print('The weights is needed ingnored')
+            for d in diff_:
+                print('  -=>'+d)
             state.update(weights) # clean the unnecesary weights' keys
             self.model.load_state_dict(state)
 
@@ -196,11 +199,13 @@ class Processor(object):
                 eval_model = ((epoch + 1) % self.arg.eval_interval == 0) or (
                         epoch + 1 == self.arg.num_epoch)
 
+                self.model.train()
                 self._train(epoch, save_model=save_model)
 
                 if eval_model:
                     with torch.no_grad():
-                        self._eval(epoch, loader_name=['test'])
+                        self.model.eval()
+                        self._eval(epoch, loader_name=['test'], islog=True)
                 else:
                     pass
 
@@ -210,6 +215,7 @@ class Processor(object):
             print('Model:   {}.'.format(self.arg.model))
             print('Weights: {}.'.format(self.arg.weights))
             with torch.no_grad():
+                self.model.eval()
                 self._eval(epoch=0, loader_name=['test'], islog=False)
             print('Done.\n')
 
@@ -242,8 +248,9 @@ class Processor(object):
         self._record_time()
         timer = dict(dataloader=0.001, model=0.001, statistics=0.001)
         for batch_idx, (features, labels) in enumerate(loader):
-            features = features.float().cuda(self.arg.device)
-            labels = labels.cuda(self.arg.device)
+            features = torch.autograd.Variable(features.float().cuda(self.arg.device), requires_grad=False)
+            labels = torch.autograd.Variable(labels.long().cuda(self.arg.device), requires_grad=False)
+
             timer['dataloader'] += self._split_time()
 
             logits = self.model(features)
@@ -255,6 +262,7 @@ class Processor(object):
             self.optimizer.zero_grad()
             lossv.backward()
             self.optimizer.step()
+
             loss_value.append(lossv.data.item())
             tmp_loss_value.append(lossv.data.item())
 
@@ -262,7 +270,7 @@ class Processor(object):
             tmp_acc_value.append(np.sum(result))
             timer['model'] += self._split_time()
             
-
+            
             # statistics
             if batch_idx % self.arg.log_interval == 0 and batch_idx != 0:
                 self._print_log(
@@ -295,20 +303,24 @@ class Processor(object):
 
 
     def _eval(self, epoch, loader_name=['test'], islog=True):
-        self.model.train()
+        # TODO Trouble on the model's BN layers track_running_stats
+        # while setting the model.train(), the bn will track the running_stats along the batch
+        # while setting the model.eval(), however bn will exploit the track_running_stats in training set.
+        self.model.eval()
+
         if islog:
             self._print_log('Eval epoch: {}'.format(epoch + 1))
 
         for ln in loader_name:
             loss_value = []
-            score_frag = []
+            score_flag = []
             labels_list = []
             for batch_idx, (features, labels) in enumerate(self.data_loader[ln]):
                 bars.print_toolbar(batch_idx * 1.0 / len(self.data_loader[ln]),
                 '({:>5}/{:<5})'.format(batch_idx + 1, len(self.data_loader[ln])))
                 
-                features = features.float().cuda(self.arg.device)
-                labels = labels.cuda(self.arg.device)
+                features = torch.autograd.Variable(features.float().cuda(self.arg.device), requires_grad=False)
+                labels = torch.autograd.Variable(labels.long().cuda(self.arg.device), requires_grad=False)
                 
                 logits = self.model(features)
                 lossv = self.loss_fn(logits, labels)
@@ -316,12 +328,12 @@ class Processor(object):
                 pred = torch.argmax(torch.softmax(logits, dim=-1), dim=-1)
                 result = (pred == labels).data.cpu().numpy()
 
-                score_frag.append(logits.data.cpu().numpy())
+                score_flag.append(logits.data.cpu().numpy())
                 labels_list.append(labels.data.cpu().numpy())
                 loss_value.append(lossv.data.item())
             bars.end_toolbar()
 
-            score = np.concatenate(score_frag)
+            score = np.concatenate(score_flag)
             labels_np = np.concatenate(labels_list)
             predict = np.argmax(score, axis=-1)
             acc = np.sum(np.equal(labels_np, predict).astype(np.int32))/predict.shape[0]

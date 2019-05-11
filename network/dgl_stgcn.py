@@ -146,6 +146,7 @@ class GTCN_block(nn.Module):
         if isinstance(graph, list):
             graph = dgl.batch(graph)
         self.stride = kwargs['stride'] # determine whether we have temporal shrinking or not
+
         assert self.stride in (1, 2) # stride should be limited to 1 or 2.
         
         self.batch_size = int(graph.batch_size // gc.max_person)
@@ -208,6 +209,7 @@ class STGCN(nn.Module):
                  batch_size,
                  temp_mode=None,
                  dropout=0.2,
+                 num_action=60,
                  num_person=2,
                  num_frame=300,
                  num_joint=25,
@@ -219,6 +221,7 @@ class STGCN(nn.Module):
         self.num_frame = num_frame
         self.num_joint = num_joint
         self.num_channel = num_channel
+        self.num_action = num_action
 
         graph_all = build_graph(temp_mode=temp_mode, self_connect=True, 
                                 max_nframe=num_frame,device=device,num_joint=num_joint)
@@ -266,7 +269,7 @@ class STGCN(nn.Module):
                                        dropout=0.2))
         self.backbone = nn.ModuleList(backbone)
 
-        self.fcn = nn.Conv1d(backbone_config[-1][1], gc.num_action,kernel_size=1)
+        self.fcn = nn.Conv1d(backbone_config[-1][1], num_action, kernel_size=1)
         
         self.data_bn = nn.BatchNorm1d(num_channel * num_joint * num_person, track_running_stats=True)
         
