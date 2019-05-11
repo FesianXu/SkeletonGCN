@@ -1,4 +1,4 @@
-work_dir: '/home/fesian/AI_workspace/research/public_skelgcn/work_dirs/eval_1/'
+work_dir: '/home/fesian/AI_workspace/research/public_skelgcn/work_dirs/train_gn/'
 
 model_args:
   num_action: 60
@@ -6,7 +6,7 @@ model_args:
   num_joint: 25
   num_frame: 300
   num_channel: 3
-  dropout: 0.5
+  dropout: 0.2
   temp_mode: 'None'
 
 feeder: feeder.ntu_feeder.NTU_Feeder
@@ -19,18 +19,18 @@ train_feeder_args:
 
 test_feeder_args:
   x_mode: 'xsub'
-  t_mode: 'train'
-  valid_length: 240
+  t_mode: 'test'
+  # valid_length: 240
 
-phase: 'test'
+phase: 'train'
 num_workers: 5
 print_log: True
 device: 0
 batch_size: 8
-weight_decay: 0.001
-base_lr: 0.01
+weight_decay: 0.00
+base_lr: 0.001
 step: [10, 50]
-optimizer: 'SGD'
+optimizer: 'Adam'
 nesterov: True
 
 log_interval: 200
@@ -38,5 +38,5 @@ save_interval: 2
 eval_interval: 2
 
 
-force_run: True # run the inference no matter the weights loaded or not
-weights: '/home/fesian/AI_workspace/research/public_skelgcn/work_dirs/dgl_ntu_1/epoch46_model.pt'
+# force_run: True # run the inference no matter the weights loaded or not
+# weights: '/home/fesian/AI_workspace/research/public_skelgcn/work_dirs/dgl_ntu_1/epoch46_model.pt'

@@ -91,10 +91,8 @@ class NTU_Feeder(torch.utils.data.Dataset):
             label = int(sample['file_name'][17:20])-1
             x = self._auto_multis(sample)
             x = np.transpose(x, (3, 1,2,0))
+
             return x, label
-
-
-
 
 
 def build_graph(temp_mode, max_nframe, self_connect=True, device=None, **kwargs):
@@ -104,9 +102,11 @@ def build_graph(temp_mode, max_nframe, self_connect=True, device=None, **kwargs)
     num_joint = kwargs['num_joint']
     
     g = dgl.DGLGraph()
-    g.add_nodes(gc.num_joints * max_nframe)
+    g.add_nodes(num_joint * max_nframe)
     connect_bone = np.array(gc.connect_bone)
     connect_bone = np.concatenate((connect_bone, connect_bone[:, ::-1]), axis=0)
+    # the undirected(bi-directed) connection
+    
     expand_connect_bone = np.zeros((2*(num_joint-1)*max_nframe, 2))
     for eacht in range(max_nframe):
         expand_connect_bone[eacht*(2 * (num_joint-1)):(eacht+1)*(2 * (num_joint-1)), :] = connect_bone + eacht * num_joint
@@ -141,7 +141,7 @@ def build_graph(temp_mode, max_nframe, self_connect=True, device=None, **kwargs)
         norm = norm.cuda(device)
     
     g.ndata['norm'] = norm.unsqueeze(1)
-    # D^{-0.5}
+    # D^{-0.5}, symmetric normalization
     return g
 
 def ntu_collate_fn(samples):
@@ -149,17 +149,13 @@ def ntu_collate_fn(samples):
     args: 
         :samples: the mini-batch samples, still store in cpu, need to load to gpu
     return:
-        :mat:    datamat in gpu, using dgl.batch
+        :mat:    datamat in gpu, using dgl.batch, (N, M, T, V, C)
         :label:  labels
     '''
     nbatch = len(samples)
     graphs, labels = map(list, zip(*samples))
     labels = torch.tensor(labels)
     feature_np = torch.tensor(np.stack(graphs, axis=0)).float()
-    # feature_np = feature_np.view(gc.batch_size*gc.max_person, gc.max_nframe*gc.num_joints, -1)
-    if gc.is_cuda:
-        feature_np = feature_np.cuda(gc.cuda_id)   
-        labels = labels.cuda(gc.cuda_id) 
     return feature_np, labels
 
     
@@ -169,4 +165,12 @@ if __name__ == '__main__':
     from torch.utils.data import DataLoader
     import copy
 
+
+    graph = build_graph(temp_mode=None, max_nframe=300, num_joint=25)
+    loader = NTU_Feeder(x_mode='xsub', t_mode='train')
+
+    Data = DataLoader(loader, batch_size=4)
+    for feature, label in Data:
+        print(feature.shape)
+        raise ValueError()
     

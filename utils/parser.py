@@ -93,8 +93,6 @@ def get_parser():
                         default=False, help='use nesterov or not')
     parser.add_argument('--batch-size', type=int,
                         default=256, help='training batch size')
-    parser.add_argument('--test-batch-size', type=int,
-                        default=256, help='test batch size')
     parser.add_argument('--start-epoch',
                         type=int,
                         default=0,

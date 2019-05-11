@@ -32,40 +32,26 @@ class GCNLayer(nn.Module):
                  in_feats,
                  out_feats,
                  activation,
-                 dropout,
-                 bias=True):
+                 dropout):
         super(GCNLayer, self).__init__()
         self.graph = graph
         self.weight = nn.Parameter(torch.Tensor(in_feats, out_feats))
-        if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_feats))
-        else:
-            self.bias = None
+        self.bias = nn.Parameter(torch.Tensor(out_feats))
 
         self.activation = activation
         self.dropout = nn.Dropout(dropout)
-
-        self._parameters_init()
-        # he_norm
-    
-    def _parameters_init(self):
-        # he_norm
-        stdv = 1.0 / math.sqrt(self.weight.size(1))
-        self.weight.data.uniform_(-stdv, stdv)
-        if self.bias is not None:
-            self.bias.data.uniform_(-stdv, stdv)
+        # conv_init(self.weight)
+   
     
     def forward(self,h):
         '''
         h shape (num_nodes, num_feats), just for a single graph
         if the h is a batch graph then:
-            h shape (num_batch * num_nodes, num_feats)
+            h shape (N*M*T*V, C)
             and the graph passing in the __init__() should also be
             a batch, using dgl.batch()
 
         '''
-        if self.dropout:
-            h = self.dropout(h)
         h = torch.matmul(h, self.weight)
         # cannot add bias here
         # HW
@@ -81,6 +67,9 @@ class GCNLayer(nn.Module):
         # bias
         if self.bias is not None:
             h = h + self.bias
+        
+        if self.dropout:
+            h = self.dropout(h)
         if self.activation:
             h = self.activation(h)
         # h = \sigma(HW D^{-0.5} A D^{-0.5})
@@ -109,6 +98,9 @@ class TemporalConvNetwork(nn.Module):
                                 stride=(stride, 1),
                                 padding=(padding, 0))
         self.bn = nn.BatchNorm2d(out_feats, track_running_stats=True)
+        # try to use GroupNorm
+        # self.bn = nn.GroupNorm(num_groups=4, num_channels=out_feats)
+
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
 
@@ -116,7 +108,7 @@ class TemporalConvNetwork(nn.Module):
 
     def forward(self, h):
         '''
-        here h with the shape of (num_batch, num_person, T, V, C)
+        here h with the shape of (N, M, T, V, C)
         return: 
             shape (N,M, Tconv, V, C)
         '''
@@ -127,8 +119,10 @@ class TemporalConvNetwork(nn.Module):
         h = h.view(N*M, C, T, V)
         h = self.activation(self.bn(self.conv_t(h)))
         # TODO Here i double the channels by the TemporalConv used in short cut connection, is it right?
+
         if self.in_feats != self.out_feats:
             C = int(C * 2)
+
         h = h.view(N,M,C,-1,V)
         h = h.permute(0,1,3,4,2)
         return h
@@ -154,7 +148,7 @@ class GTCN_block(nn.Module):
                             in_feats=in_feats,
                             out_feats=out_feats,
                             activation=activation,
-                            dropout=dropout)
+                            dropout=0.1)
         padding = int((kwargs['kernel']-1)/2)
         self.tcn = TemporalConvNetwork(in_feats=out_feats,
                                        out_feats=out_feats,
@@ -181,17 +175,16 @@ class GTCN_block(nn.Module):
     
     def forward(self, h):
         num_nodes, Ch = h.size()
-        v = self.gcn(h)
-        v = v.view(self.batch_size, gc.max_person, -1, gc.num_joints, v.size()[1])
-        # print(v.shape)
+        v = self.gcn(h)  # (N*M*T*V, C_{out})
+        v = v.view(self.batch_size, gc.max_person, -1, gc.num_joints, v.size()[-1])
         v = self.tcn(v)
-        # print(v.shape)
         # shape (N, M, T, V, C)
 
         N, M, T, V, _ = v.size()
         h = h.view(N, M, -1, V, Ch)
         
         v = v+(h if self.downt is None else self.downt(h))
+
         # add the short cut connection to reduce the gradient vanishment.
         return v
 
@@ -208,6 +201,7 @@ class STGCN(nn.Module):
     def __init__(self,
                  batch_size,
                  temp_mode=None,
+                 temporal_conv=9,
                  dropout=0.2,
                  num_action=60,
                  num_person=2,
@@ -222,6 +216,7 @@ class STGCN(nn.Module):
         self.num_joint = num_joint
         self.num_channel = num_channel
         self.num_action = num_action
+        self.temporal_conv = temporal_conv
 
         graph_all = build_graph(temp_mode=temp_mode, self_connect=True, 
                                 max_nframe=num_frame,device=device,num_joint=num_joint)
@@ -249,13 +244,13 @@ class STGCN(nn.Module):
                              in_feats=num_channel,
                              out_feats=backbone_config[0][0],
                              activation=F.relu,
-                             dropout=dropout)
+                             dropout=0.1)
         self.tcn0 = TemporalConvNetwork(in_feats=backbone_config[0][0],
                                         out_feats=backbone_config[0][0],
                                         activation=F.relu,
                                         dropout=dropout,
                                         stride=1,
-                                        kernel=9,
+                                        kernel=temporal_conv,
                                         padding=4)
 
         backbone = []
@@ -265,34 +260,32 @@ class STGCN(nn.Module):
                                        out_feats=out_c,
                                        activation=F.relu,
                                        stride=stride,
-                                       kernel=9,
-                                       dropout=0.2))
+                                       kernel=temporal_conv,
+                                       dropout=dropout))
         self.backbone = nn.ModuleList(backbone)
-
         self.fcn = nn.Conv1d(backbone_config[-1][1], num_action, kernel_size=1)
-        
         self.data_bn = nn.BatchNorm1d(num_channel * num_joint * num_person, track_running_stats=True)
-        
-        
+        # self.data_bn = nn.GroupNorm(num_groups=10, num_channels= num_channel * num_joint * num_person)
         conv_init(self.fcn)
+        
 
     def forward(self, h):
         '''
-        args:
+        args:   (N, M, T, V, C)
             :h: with the shape of (N, M, T, V, C)
         '''
         N, M, T, V, C = h.size()
         h = h.permute(0, 1, 4, 3,2).contiguous().view(N, M*C*V, T)
 
         h = self.data_bn(h).view(N, M, C, V, T)
-        h = h.permute(0, 1, 4, 3, 2).contiguous()
+        h = h.permute(0, 1, 4, 3, 2).contiguous() # (N, M, T, V, C)
         h = h.view(N*M*T*V, C)
         # the data bn to each person here
 
         h = self.gcn0(h)
         h = h.view(self.batch_size, self.num_person, -1, self.num_joint, h.size()[1])
         h = self.tcn0(h)
-        h = formation(h)
+        h = formation(h) # (N*M*T*V,C)
         # the first GTCN, from the original base_num_channel to backbone_config[0][0]
         
         for ind, m in enumerate(self.backbone):
@@ -305,7 +298,7 @@ class STGCN(nn.Module):
 
         # V pooling
         h = h.permute(0,1,4,2,3).view(N*M, C, T, V)
-        h = F.avg_pool2d(h, kernel_size=(1,V))
+        h = F.avg_pool2d(h, kernel_size=(1, V))
         
         # M pooling
         h = h.view(N, M, C, T).mean(dim=1)
@@ -316,9 +309,6 @@ class STGCN(nn.Module):
         # classify
         h = self.fcn(h).squeeze(-1)
         return h
-
-        
-
 
 
 if __name__ == '__main__':
